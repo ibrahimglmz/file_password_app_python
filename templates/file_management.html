@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dosya Yönetimi</title>
+    <style>
+        /* CSS stilleriniz */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f9f9f9;
+        }
+        input[type="file"], button {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #file-preview {
+            margin-top: 20px;
+        }
+        #file-preview img {
+            max-width: 100%;
+            height: auto;
+        }
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+        }
+        canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dosya Yönetimi</h1>
+
+        <!-- Dosya Yükleme Formu -->
+        <form id="upload-form" enctype="multipart/form-data">
+            <input type="file" id="file-input" name="file" accept=".pdf,.jpg,.jpeg,.png,.txt,.html,.xls,.xlsx,.doc,.docx">
+            <button type="submit">Dosya Yükle</button>
+        </form>
+
+        <!-- Dosya Listesi -->
+        <h2>Yüklenen Dosyalar</h2>
+        <ul id="file-list"></ul>
+
+        <!-- Dosya Önizleme -->
+        <div id="file-preview"></div>
+    </div>
+
+    <!-- Gerekli Kütüphaneler -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/3.0.1/js.cookie.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js"></script>
+
+
+
+
+
+
+    <script>
+        document.getElementById('clearCookiesBtn').addEventListener('click', () => {
+            fetch('/clear_cookies', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message);
+                // Çerezlerin silindiğini doğrulamak için sayfayı yeniden yükleyin veya kontrol edin
+                window.location.reload(); // Sayfayı yeniden yükler
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+
+
+
+
+      <h1>Çerezleri Sil</h1>
+    <button id="deleteCookies">Çerezleri Sil</button>
+
+    <script>
+        document.getElementById('deleteCookies').addEventListener('click', function() {
+            // Çerezleri silme
+            Cookies.remove('username');
+            Cookies.remove('face_encoding');
+            alert('Çerezler silindi. Tekrar giriş yapmanız gerekiyor.');
+        });
+    </script>
+
+
+    <script>
+        const uploadForm = document.getElementById('upload-form');
+        const fileList = document.getElementById('file-list');
+        const filePreview = document.getElementById('file-preview');
+        const video = document.createElement('video');
+        const canvas = document.createElement('canvas');
+        canvas.style.display = 'none';
+        document.body.appendChild(canvas);
+
+        async function loadUsername() {
+            try {
+                const response = await fetch('/anlik_kullanici/data.json');
+                if (!response.ok) {
+                    throw new Error('Kullanıcı verileri yüklenemedi.');
+                }
+                const data = await response.json();
+                return data.username;
+            } catch (error) {
+                console.error('Kullanıcı adı yüklenirken hata oluştu:', error);
+                return null;
+            }
+        }
+
+        uploadForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            const formData = new FormData(uploadForm);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(data.message);
+                    loadFiles();
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert("Dosya yüklenirken bir hata oluştu.");
+                console.error('Upload error:', error);
+            }
+        });
+
+        async function loadFiles() {
+            try {
+                const response = await fetch('/files');
+                const files = await response.json();
+                fileList.innerHTML = '';
+                files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.textContent = file;
+
+                    const viewButton = document.createElement('button');
+                    viewButton.textContent = 'Önizle';
+                    viewButton.onclick = () => viewFile(file);
+                    li.appendChild(viewButton);
+
+                    fileList.appendChild(li);
+                });
+            } catch (error) {
+                alert("Dosya listesini yüklerken bir hata oluştu.");
+                console.error('Load files error:', error);
+            }
+        }
+
+        let verificationIntervalId = null;
+
+       async function viewFile(file) {
+    // Önce yüz doğrulama işlemi yapılacak
+    const isVerified = await verifyFaceId();
+    if (!isVerified) {
+        alert('Yüz doğrulama başarısız.');
+        window.location.href = '/index.html'; // Geri yönlendirme
+        return;
+    }
+
+    // Yüz doğrulama başarılı ise dosya önizleme yapılacak
+    const username = await loadUsername();
+    if (!username) {
+        alert('Kullanıcı adı bulunamadı. Lütfen tekrar giriş yapın.');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/get_current_username?filename=${encodeURIComponent(file)}&username=${encodeURIComponent(username)}`);
+        const data = await response.json();
+
+        if (response.ok) {
+            switch (data.type) {
+                case 'text':
+                    filePreview.innerText = data.content;
+                    break;
+                case 'html':
+                    filePreview.innerHTML = data.content;
+                    break;
+                case 'pdf':
+                    filePreview.innerHTML = `<iframe src="${data.url}" type="application/pdf"></iframe>`;
+                    break;
+                case 'xls':
+                case 'xlsx':
+                    filePreview.innerHTML = data.content;
+                    break;
+                case 'jpg':
+                case 'jpeg':
+                case 'png':
+                    filePreview.innerHTML = `<img src="${data.url}" alt="Image Preview">`;
+                    break;
+                case 'doc':
+                case 'docx':
+                    const arrayBuffer = base64ToArrayBuffer(data.content);
+                    mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+                        .then(result => {
+                            filePreview.innerHTML = result.value;
+                        })
+                        .catch(error => {
+                            console.error('Word document conversion error:', error);
+                            alert('Belge önizleme hatası.');
+                        });
+                    break;
+                default:
+                    alert('Desteklenmeyen dosya türü.');
+                    break;
+            }
+
+            // Başarıyla önizleme yapıldıysa yüz doğrulama işlemi başlatılır
+            if (verificationIntervalId === null) {
+                verificationIntervalId = setInterval(async () => {
+                    const isVerified = await verifyFaceId();
+                    if (!isVerified) {
+                        alert('Yüz doğrulama başarısız.');
+                        window.location.href = '/index.html'; // Geri yönlendirme
+                        clearInterval(verificationIntervalId);
+                        verificationIntervalId = null;
+                    }
+                }, 3000); // 3 saniyede bir kontrol eder
+            }
+
+        } else {
+            alert(`Sunucu hatası: ${data.error || 'Bilinmeyen bir hata oluştu.'}`);
+        }
+    } catch (error) {
+        alert('Dosya önizleme hatası.');
+        console.error('Preview error:', error);
+    }
+}
+
+function base64ToArrayBuffer(base64) {
+    try {
+        const binaryString = window.atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    } catch (error) {
+        console.error('Base64 to ArrayBuffer conversion error:', error);
+        throw new Error('Base64 to ArrayBuffer conversion error');
+    }
+}
+
+let isFaceIdVerified = false;
+
+window.addEventListener('load', function() {
+    // Tarayıcı geçmişine bir giriş ekle ve mevcut sayfayı tarayıcı geçmişine ekle
+    history.replaceState(null, null, location.href);
+    history.pushState(null, null, location.href);
+
+    // Tarayıcı geri gitme işlemi olduğunda kontrol et
+    window.addEventListener('popstate', function(event) {
+        if (isFaceIdVerified) {
+            // Kullanıcı geri döndüğünde ileri gitmeyi engelle
+            history.replaceState(null, null, location.href);
+        } else {
+            // Yüz doğrulama başarılı değilse, geri gitmeyi ve ileri gitmeyi engelle
+            window.location.href = '/to_index'; // Geri yönlendirme
+        }
+    });
+
+    // Tarayıcı ileri gitme işlemi olduğunda kontrol et
+    window.addEventListener('pushstate', function(event) {
+        if (!isFaceIdVerified) {
+            // Yüz doğrulama başarılı değilse, ileri gitmeyi engelle
+            window.location.href = '/to_index'; // Geri yönlendirme
+        }
+    });
+});
+
+        function verifyFaceId() {
+            return new Promise((resolve, reject) => {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        video.srcObject = stream;
+                        video.play();
+
+                        const context = canvas.getContext('2d');
+                        const intervalId = setInterval(async () => {
+                            if (!video.paused && !video.ended) {
+                                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                const faceImage = canvas.toDataURL('image/jpeg');
+                                const username = await loadUsername();
+
+                                if (!username) {
+                                    alert('Kullanıcı adı bulunamadı. Lütfen tekrar giriş yapın.');
+                                    clearInterval(intervalId);
+                                    video.srcObject.getTracks().forEach(track => track.stop());
+                                    return resolve(false);
+                                }
+
+                                try {
+                                    const response = await fetch('/verify-face-id', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ face_encoding: faceImage, username: username })
+                                    });
+                                    const data = await response.json();
+                                    if (data.success) {
+                                        isFaceIdVerified = true;
+                                        resolve(true);
+                                        clearInterval(intervalId);
+                                        video.srcObject.getTracks().forEach(track => track.stop());
+                                    } else {
+                                        alert('Yüz doğrulama başarısız.');
+                                        window.location.href = '/to_index';
+                                        clearInterval(intervalId);
+                                        video.srcObject.getTracks().forEach(track => track.stop());
+                                    }
+                                } catch (error) {
+                                    console.error('Face ID verification error:', error);
+                                    reject(error);
+                                }
+                            }
+                        }, 1000); // 1 saniyede bir kontrol eder
+                    })
+                    .catch(error => {
+                        console.error('Kamera erişim hatası:', error);
+                        reject(error);
+                    });
+            });
+        }
+
+        // Sayfa yüklendiğinde dosyaları yükle
+        loadFiles();
+    </script>
+</body>
+</html>

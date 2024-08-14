@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş ve Kayıt</title>
+    <link rel="stylesheet" href="/static/style.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+
+     <script>
+        window.addEventListener('load', function() {
+            // Çerezleri temizle
+            fetch('/clear_cookies', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message);
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+            });
+        });
+    </script>
+    <script>
+        function registerUser(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                alert('Kullanıcı adı ve şifre gereklidir.');
+                return;
+            }
+
+            startFaceCapture(username, password, '/register');
+        }
+
+        function loginUser(event) {
+            event.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            if (!username || !password) {
+                alert('Kullanıcı adı ve şifre gereklidir.');
+                return;
+            }
+
+            startFaceCapture(username, password, '/face_id_login');
+        }
+
+        function startFaceCapture(username, password, endpoint) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.autoplay = true;
+                    video.onloadedmetadata = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        const ctx = canvas.getContext('2d');
+
+                        // Kamera önizlemesini oluştur
+                        const cameraPreview = document.createElement('div');
+                        cameraPreview.id = 'camera-preview';
+                        cameraPreview.style.position = 'fixed';
+                        cameraPreview.style.top = '50%';
+                        cameraPreview.style.left = '50%';
+                        cameraPreview.style.transform = 'translate(-50%, -50%)';
+                        cameraPreview.style.zIndex = '1000';
+                        cameraPreview.style.border = '2px solid #000';
+                        cameraPreview.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                        cameraPreview.style.padding = '10px';
+                        cameraPreview.appendChild(video);
+                        document.body.appendChild(cameraPreview);
+
+                        setTimeout(() => {
+                            ctx.drawImage(video, 0, 0);
+                            stream.getTracks().forEach(track => track.stop());
+
+                            document.body.removeChild(cameraPreview);
+
+                            const faceData = canvas.toDataURL('image/jpeg').split(',')[1];
+                            sendFaceData(faceData, username, password, endpoint);
+                        }, 1000); // 1 saniye bekle
+                    };
+                })
+                .catch(error => {
+                    console.error('Kamera erişim hatası:', error);
+                    alert('Kamera erişimi sağlanamadı. Lütfen kamera izinlerinizi kontrol edin.');
+                });
+        }
+
+        function sendFaceData(faceData, username, password, endpoint) {
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                    face_encoding: faceData
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP hata kodu: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Sunucu yanıtı:', data); // Yanıtı logla
+                if (data.message === 'Başarıyla giriş yapıldı') {
+                    if (data.redirect) {
+                        window.location.href = data.redirect;
+                    } else {
+                        alert('Giriş başarılı!');
+                    }
+                } else {
+                    alert(`${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('İşlem hatası:', error);
+                alert(`İşlem sırasında bir hata oluştu: ${error.message}`);
+            });
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background: url('../static/ana_ekran/anaResim.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            margin: 20px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8); /* Beyaz arka plan ve %80 saydamlık */
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="password"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #camera-preview {
+            width: 80%;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <h1>HOŞGELDİNİZ</h1>
+    <form id="register-form" onsubmit="registerUser(event)">
+        <h2>Kayıt Ol</h2>
+        <label for="username">Kullanıcı Adı:</label>
+        <input type="text" id="username" name="username" required>
+        <label for="password">Şifre:</label>
+        <input type="password" id="password" name="password" required>
+        <button type="submit">Kayıt Ol</button>
+    </form>
+    <form id="login-form" onsubmit="loginUser(event)">
+        <h2>Giriş Yap</h2>
+        <label for="login-username">Kullanıcı Adı:</label>
+        <input type="text" id="login-username" name="username" required>
+        <label for="login-password">Şifre:</label>
+        <input type="password" id="login-password" name="password" required>
+        <button type="submit">Giriş Yap</button>
+    </form>
+</body>
+</html>

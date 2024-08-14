@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Dosya Yükleme ve İndirme</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Dosya Seçin:</label>
+                <input type="file" id="file" name="file" required>
+            </div>
+            <button type="button" onclick="handleFileUpload()">Dosya Yükle</button>
+        </form>
+
+        <h2>Yüklenmiş Dosyalar</h2>
+        <ul id="fileList">
+            {% for file in files %}
+                <li>
+                    {{ file }}
+                    <button onclick="handleFileDownload('{{ file }}')">İndir</button>
+                    <button onclick="handleFilePreview('{{ file }}')">Önizle</button>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <script>
+        function handleFileUpload() {
+            const formData = new FormData(document.getElementById('uploadForm'));
+
+            fetch('/upload_file', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => alert(data.message));
+        }
+
+        function handleFileDownload(fileName) {
+            window.location.href = `/download_file/${fileName}`;
+        }
+
+        function handleFilePreview(fileName) {
+            window.open(`/preview_file/${fileName}`);
+        }
+    </script>
+</body>
+</html>
