@@ -10,7 +10,7 @@ pip  install -r requirements.txt
 
 
 
-[TR] - isteme kayıt olan kullanıcıların Face ID verisiyle yüksek güvenlikli dosyalara erişmesini sağlar. Kayıtlı kullanıcılar, sisteme PDF, Excel, Word, PNG formatlarında dosyalar yükleyebilir ve bu dosyaları okuyabilirler. Face ID'nin çalışma prensibi, fotoğrafı embed ederek base64 formatına dönüştürmeye dayanır.
+[TR] - sisteme kayıt olan kullanıcıların Face ID verisiyle yüksek güvenlikli dosyalara erişmesini sağlar. Kayıtlı kullanıcılar, sisteme PDF, Excel, Word, PNG formatlarında dosyalar yükleyebilir ve bu dosyaları okuyabilirler. Face ID'nin çalışma prensibi, fotoğrafı embed ederek base64 formatına dönüştürmeye dayanır.
 
 [EN] - It allows registered users to access highly secure files with Face ID data. Registered users can upload files in PDF, Excel, Word, PNG formats to the system and read these files. The working principle of Face ID is based on embedding the photo and converting it to base64 format.
 
