@@ -1,4 +1,34 @@
-pip  install -r requirements.txt
+ [WİN]
+pip install -r requirements.txt
+
+ [Macos]
+1- 
+conda deactivate
+conda remove -n github-test --all
+conda create -n github-test python=3.8
+conda activate github-test
+
+
+2- 
+conda install -c conda-forge dlib
+pip install face_recognition
+
+
+3- 
+git clone https://github.com/davisking/dlib.git
+cd dlib
+python setup.py install
+cd ..
+pip install face_recognition
+
+4- 
+arch -x86_64 /bin/bash
+conda activate github-test
+python3 api.py
+
+5- 
+pip install -r requirements.txt
+
 
 
 
